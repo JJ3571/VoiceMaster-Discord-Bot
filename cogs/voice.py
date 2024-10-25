@@ -7,6 +7,7 @@ import sqlite3
 class voice(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
+        self.fireteam_counter = 2
 
     @commands.Cog.listener()
     async def on_voice_state_update(self, member, before, after):
@@ -14,7 +15,7 @@ class voice(commands.Cog):
         c = conn.cursor()
         guildID = member.guild.id
         c.execute("SELECT voiceChannelID FROM guild WHERE guildID = ?", (guildID,))
-        voice=c.fetchone()
+        voice = c.fetchone()
         if voice is None:
             pass
         else:
@@ -22,54 +23,44 @@ class voice(commands.Cog):
             try:
                 if after.channel.id == voiceID:
                     c.execute("SELECT * FROM voiceChannel WHERE userID = ?", (member.id,))
-                    cooldown=c.fetchone()
+                    cooldown = c.fetchone()
                     if cooldown is None:
                         pass
                     else:
                         await member.send("Creating channels too quickly you've been put on a 15 second cooldown!")
                         await asyncio.sleep(15)
                     c.execute("SELECT voiceCategoryID FROM guild WHERE guildID = ?", (guildID,))
-                    voice=c.fetchone()
-                    c.execute("SELECT channelName, channelLimit FROM userSettings WHERE userID = ?", (member.id,))
-                    setting=c.fetchone()
+                    voice = c.fetchone()
                     c.execute("SELECT channelLimit FROM guildSettings WHERE guildID = ?", (guildID,))
-                    guildSetting=c.fetchone()
-                    if setting is None:
-                        name = f"{member.name}'s channel"
-                        if guildSetting is None:
-                            limit = 0
-                        else:
-                            limit = guildSetting[0]
+                    guildSetting = c.fetchone()
+                    
+                    # Use the counter for the channel name
+                    name = f"Fireteam {self.fireteam_counter}"
+                    self.fireteam_counter += 1  # Increment the counter for the next channel
+                    
+                    if guildSetting is None:
+                        limit = 0
                     else:
-                        if guildSetting is None:
-                            name = setting[0]
-                            limit = setting[1]
-                        elif guildSetting is not None and setting[1] == 0:
-                            name = setting[0]
-                            limit = guildSetting[0]
-                        else:
-                            name = setting[0]
-                            limit = setting[1]
+                        limit = guildSetting[0]
+
                     categoryID = voice[0]
                     id = member.id
                     category = self.bot.get_channel(categoryID)
-                    channel2 = await member.guild.create_voice_channel(name,category=category)
+                    channel2 = await member.guild.create_voice_channel(name, category=category)
                     channelID = channel2.id
                     await member.move_to(channel2)
-                    await channel2.set_permissions(self.bot.user, connect=True,read_messages=True)
-                    await channel2.set_permissions(member, connect=True,read_messages=True)
-                    await channel2.edit(name= name, user_limit = limit)
-                    c.execute("INSERT INTO voiceChannel VALUES (?, ?)", (id,channelID))
+                    await channel2.set_permissions(self.bot.user, connect=True, read_messages=True)
+                    await channel2.set_permissions(member, connect=True, read_messages=True)
+                    await channel2.edit(name=name, user_limit=limit)
+                    c.execute("INSERT INTO voiceChannel VALUES (?, ?)", (id, channelID))
                     conn.commit()
-                    def check(a,b,c):
+
+                    def check(a, b, c):
                         return len(channel2.members) == 0
+
                     await self.bot.wait_for('voice_state_update', check=check)
-                    await channel2.delete()
-                    await asyncio.sleep(3)
-                    c.execute('DELETE FROM voiceChannel WHERE userID=?', (id,))
-            except:
+            except AttributeError:
                 pass
-        conn.commit()
         conn.close()
 
     @commands.command()
@@ -83,7 +74,7 @@ class voice(commands.Cog):
                         f'**Give users permission to join by using the following command:**\n\n`.voice permit @person`\n\n**Example:** `.voice permit @Sam#9452`\n\n------------\n\n'
                         f'**Claim ownership of channel once the owner has left:**\n\n`.voice claim`\n\n**Example:** `.voice claim`\n\n------------\n\n'
                         f'**Remove permission and the user from your channel using the following command:**\n\n`.voice reject @person`\n\n**Example:** `.voice reject @Sam#9452`\n\n', inline='false')
-        embed.set_footer(text='Bot developed by Sam#9452')
+        embed.set_footer(text='Developed by Sam#9452, Modified by JJ3571')
         await ctx.channel.send(embed=embed)
 
     @commands.group()
